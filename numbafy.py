@@ -1,5 +1,6 @@
 __version__ = '0.52'
 import sympy as sym
+from numba import jit
 
 def numbafy(expression, parameters=None, constants=None, use_cse=False, new_function_name='numbafy_func'):
     cse = sym.cse(expression)
@@ -24,12 +25,11 @@ def numbafy(expression, parameters=None, constants=None, use_cse=False, new_func
             k, v = e
             code_cse.append(f'{k} = {v}')
         code_cse = '\n    '.join(code_cse)
-        code_expression = f'{expressions[1][0]}'
+        code_expression = f'np.array({expressions[1]})' #f'{expressions[1][0]}'
     else:
         code_expression = f'{expression}'
         
-
-    template = f"""@jit
+    template = f"""@jit(nopython=True)
 def {new_function_name}({code_parameters}):
     {code_constants}
     {code_cse}
