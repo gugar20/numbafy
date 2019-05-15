@@ -1,6 +1,7 @@
 __version__ = '0.52'
 import sympy as sym
 from numba import jit
+import numpy as np
 
 def numbafy(expression, parameters=None, constants=None, use_cse=False, new_function_name='numbafy_func'):
     cse = sym.cse(expression)
@@ -19,21 +20,30 @@ def numbafy(expression, parameters=None, constants=None, use_cse=False, new_func
         code_constants = '\n    '.join(code_constants)
         
     if use_cse:
-        expressions = sym.cse(expression)
+        shape = np.shape(expression)
+        if len(shape)==1:
+            expressions = sym.cse(expression)
+            expressions_shaped = expressions[1]
+            code_expression = f"""{expressions_shaped}"""
+        elif len(shape)==2:
+            expressions = sym.cse(np.ravel(expression))
+            expressions_shaped = sym.Matrix(expressions[1]).reshape(*shape)
+            code_expression = f"""{expressions_shaped}"""[7:][:-1] 
+        else:
+            raise TypeError
         code_cse = []
         for e in expressions[0]:
             k, v = e
             code_cse.append(f'{k} = {v}')
         code_cse = '\n    '.join(code_cse)
-        code_expression = f'np.array({expressions[1]})' #f'{expressions[1][0]}'
+        #f'{expressions[1][0]}'
     else:
-        code_expression = f'{expression}'
+        code_expression = f'return {expression}'
         
     template = f"""@jit(nopython=True)
 def {new_function_name}({code_parameters}):
     {code_constants}
     {code_cse}
-
     return {code_expression}"""
        
     return template
